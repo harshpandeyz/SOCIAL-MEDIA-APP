@@ -7,6 +7,7 @@ import com.studentlink.dto.AuthResponse;
 import com.studentlink.dto.LoginRequest;
 import com.studentlink.dto.RegisterRequest;
 import com.studentlink.service.AuthService;
+import com.studentlink.dto.VerifyOtpRequest;
 
 @RestController
 @RequestMapping("/api/auth")
