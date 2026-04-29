@@ -1,15 +1,23 @@
 package com.studentlink.service;
 
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
+import com.mailjet.client.ClientOptions;
+import com.mailjet.client.MailjetClient;
+import com.mailjet.client.MailjetRequest;
+import com.mailjet.client.MailjetResponse;
+import com.mailjet.client.resource.Emailv31;
+import org.json.JSONArray;
+import org.json.JSONObject;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 @Service
 public class EmailService {
 
-    @Autowired
-    private JavaMailSender mailSender;
+    @Value("${mailjet.api.key}")
+    private String apiKey;
+
+    @Value("${mailjet.secret.key}")
+    private String secretKey;
 
     public void sendOtpEmail(String toEmail, String otp) {
 
@@ -17,29 +25,39 @@ public class EmailService {
             throw new IllegalArgumentException("Only university email addresses are allowed");
         }
 
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setTo(toEmail);
-        message.setSubject("StudentLink Email Verification");
-        message.setText(
-                "Your StudentLink OTP is: " + otp +
-                        "\n\nDo not share this with anyone."
-        );
-
         try {
-            mailSender.send(message);
-            System.out.println("Mail sent successfully to: " + toEmail);
+            MailjetClient client = new MailjetClient(apiKey, secretKey);
+            MailjetRequest request = new MailjetRequest(Emailv31.resource)
+                    .property(Emailv31.MESSAGES, new JSONArray()
+                            .put(new JSONObject()
+                                    .put(Emailv31.Message.FROM, new JSONObject()
+                                            .put("Email", "your_verified_mail@domain.com")
+                                            .put("Name", "StudentLink"))
+                                    .put(Emailv31.Message.TO, new JSONArray()
+                                            .put(new JSONObject()
+                                                    .put("Email", toEmail)))
+                                    .put(Emailv31.Message.SUBJECT, "StudentLink Email Verification")
+                                    .put(Emailv31.Message.TEXTPART,
+                                            "Your StudentLink OTP is: " + otp + "\n\nDo not share this with anyone.")
+                            ));
+
+            MailjetResponse response = client.post(request);
+
+            if (response.getStatus() == 200) {
+                System.out.println("Mail sent successfully to: " + toEmail);
+            } else {
+                System.out.println("Mailjet error: " + response.getStatus());
+                throw new RuntimeException("Email sending failed");
+            }
+
         } catch (Exception e) {
-            System.out.println("Failed to send email");
             e.printStackTrace();
             throw new RuntimeException("Email sending failed");
         }
     }
 
     public boolean isEducationalEmail(String email) {
-
-        if (email == null || !email.contains("@")) {
-            return false;
-        }
+        if (email == null || !email.contains("@")) return false;
 
         String domain = email.substring(email.indexOf("@") + 1).toLowerCase();
 
